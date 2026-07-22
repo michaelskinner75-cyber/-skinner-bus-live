@@ -1,16 +1,16 @@
 const AREAS = ['All', 'Fife', 'Dundee', 'Perth', 'Angus', 'St Andrews', 'Edinburgh'];
 
-// Demo records keep the interface usable before a production data feed is connected.
-// Replace this array through data-adapter.js when the timetable/live backend is ready.
+// Scheduled-board starter data. These rows are not live vehicle predictions.
+// The next data stage will replace this list with Stagecoach TransXChange records.
 const departures = [
-  { route:'X54', destination:'Dundee', stop:'Dunfermline Bus Station', area:'Fife', due:3, status:'live', detail:'Live', fleet:'26341' },
-  { route:'7', destination:'Leven', stop:'Kirkcaldy Bus Station', area:'Fife', due:6, status:'delayed', detail:'4 min late', fleet:'37422' },
-  { route:'39', destination:'Arbroath', stop:'Dundee Seagate', area:'Dundee', due:8, status:'live', detail:'Live', fleet:'27548' },
-  { route:'16', destination:'Perth', stop:'Dundee Seagate', area:'Dundee', due:12, status:'scheduled', detail:'Scheduled', fleet:null },
-  { route:'X7', destination:'Aberdeen', stop:'Arbroath Bus Station', area:'Angus', due:15, status:'live', detail:'Live', fleet:'50411' },
-  { route:'X59', destination:'Edinburgh', stop:'St Andrews Bus Station', area:'St Andrews', due:19, status:'delayed', detail:'7 min late', fleet:'54276' },
-  { route:'15', destination:'Crieff', stop:'Perth Bus Station', area:'Perth', due:22, status:'scheduled', detail:'Scheduled', fleet:null },
-  { route:'X56', destination:'Perth', stop:'Ferrytoll Park & Ride', area:'Edinburgh', due:27, status:'live', detail:'Live', fleet:'26337' }
+  { route:'X54', destination:'Dundee', stop:'Dunfermline Bus Station', area:'Fife', time:'06:55' },
+  { route:'7', destination:'Leven', stop:'Kirkcaldy Bus Station', area:'Fife', time:'07:05' },
+  { route:'39', destination:'Arbroath', stop:'Dundee Seagate', area:'Dundee', time:'07:15' },
+  { route:'16', destination:'Perth', stop:'Dundee Seagate', area:'Dundee', time:'07:30' },
+  { route:'X7', destination:'Aberdeen', stop:'Arbroath Bus Station', area:'Angus', time:'07:40' },
+  { route:'X59', destination:'Edinburgh', stop:'St Andrews Bus Station', area:'St Andrews', time:'07:55' },
+  { route:'15', destination:'Crieff', stop:'Perth Bus Station', area:'Perth', time:'08:10' },
+  { route:'X56', destination:'Perth', stop:'Ferrytoll Park & Ride', area:'Edinburgh', time:'08:25' }
 ];
 
 let selectedArea = 'All';
@@ -29,6 +29,19 @@ function updateClock() {
   });
 }
 
+function minutesUntil(time) {
+  const [hours, minutes] = time.split(':').map(Number);
+  const now = new Date();
+  const departure = new Date(now);
+  departure.setHours(hours, minutes, 0, 0);
+  if (departure < now) departure.setDate(departure.getDate() + 1);
+  return Math.max(0, Math.ceil((departure - now) / 60000));
+}
+
+function liveSearchUrl(item) {
+  return `https://bustimes.org/search?q=${encodeURIComponent(`${item.stop} ${item.route}`)}`;
+}
+
 function renderAreas() {
   areaChips.innerHTML = '';
   AREAS.forEach(area => {
@@ -43,15 +56,18 @@ function renderAreas() {
 function keyFor(item) { return `${item.route}|${item.stop}|${item.destination}`; }
 
 function renderDepartures() {
-  const filtered = departures.filter(item => {
-    const areaMatch = selectedArea === 'All' || item.area === selectedArea;
-    const text = `${item.route} ${item.destination} ${item.stop} ${item.area}`.toLowerCase();
-    return areaMatch && text.includes(query.toLowerCase());
-  });
+  const filtered = departures
+    .map(item => ({ ...item, due: minutesUntil(item.time) }))
+    .filter(item => {
+      const areaMatch = selectedArea === 'All' || item.area === selectedArea;
+      const text = `${item.route} ${item.destination} ${item.stop} ${item.area}`.toLowerCase();
+      return areaMatch && text.includes(query.toLowerCase());
+    })
+    .sort((a, b) => a.due - b.due);
 
   list.innerHTML = '';
   if (!filtered.length) {
-    list.innerHTML = '<div class="empty">No Stagecoach departures match that search.</div>';
+    list.innerHTML = '<div class="empty">No scheduled Stagecoach departures match that search.</div>';
     return;
   }
 
@@ -61,11 +77,19 @@ function renderDepartures() {
     node.querySelector('h4').textContent = item.destination;
     node.querySelector('.stop-name').textContent = item.stop;
     const pill = node.querySelector('.status-pill');
-    pill.textContent = item.detail;
-    pill.classList.add(item.status);
-    node.querySelector('.vehicle').textContent = item.fleet ? `Fleet ${item.fleet}` : 'Vehicle unavailable';
+    pill.textContent = 'Scheduled';
+    pill.classList.add('scheduled');
+    node.querySelector('.vehicle').textContent = `Timetable ${item.time}`;
     node.querySelector('.time-block strong').textContent = item.due <= 1 ? 'Due' : item.due;
-    node.querySelector('.time-block span').textContent = item.due <= 1 ? 'now' : 'mins';
+    node.querySelector('.time-block span').textContent = item.due <= 1 ? 'scheduled' : 'mins';
+
+    const liveLink = document.createElement('a');
+    liveLink.className = 'live-check-link';
+    liveLink.href = liveSearchUrl(item);
+    liveLink.target = '_blank';
+    liveLink.rel = 'noopener noreferrer';
+    liveLink.textContent = 'Check live on bustimes.org ↗';
+    node.querySelector('.meta-row').append(liveLink);
 
     const fav = node.querySelector('.favourite-button');
     const key = keyFor(item);
@@ -89,7 +113,7 @@ function renderFavourites() {
   selected.forEach(item => {
     const card = document.createElement('button');
     card.className = 'favourite-card';
-    card.innerHTML = `<strong>${item.stop}</strong><span>${item.route} to ${item.destination}</span>`;
+    card.innerHTML = `<strong>${item.stop}</strong><span>${item.route} to ${item.destination} · ${item.time}</span>`;
     card.onclick = () => { query = item.stop; document.querySelector('#searchInput').value = query; renderDepartures(); };
     favourites.append(card);
   });
@@ -111,4 +135,6 @@ document.querySelector('#themeButton').onclick = () => {
 };
 if (localStorage.getItem('sbl-theme') === 'dark') document.body.classList.add('dark');
 
-updateClock(); setInterval(updateClock, 30000); renderAreas(); renderDepartures(); renderFavourites();
+updateClock();
+setInterval(() => { updateClock(); renderDepartures(); }, 30000);
+renderAreas(); renderDepartures(); renderFavourites();
