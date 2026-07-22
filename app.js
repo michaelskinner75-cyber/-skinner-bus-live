@@ -1,140 +1,22 @@
-const AREAS = ['All', 'Fife', 'Dundee', 'Perth', 'Angus', 'St Andrews', 'Edinburgh'];
-
-// Scheduled-board starter data. These rows are not live vehicle predictions.
-// The next data stage will replace this list with Stagecoach TransXChange records.
-const departures = [
-  { route:'X54', destination:'Dundee', stop:'Dunfermline Bus Station', area:'Fife', time:'06:55' },
-  { route:'7', destination:'Leven', stop:'Kirkcaldy Bus Station', area:'Fife', time:'07:05' },
-  { route:'39', destination:'Arbroath', stop:'Dundee Seagate', area:'Dundee', time:'07:15' },
-  { route:'16', destination:'Perth', stop:'Dundee Seagate', area:'Dundee', time:'07:30' },
-  { route:'X7', destination:'Aberdeen', stop:'Arbroath Bus Station', area:'Angus', time:'07:40' },
-  { route:'X59', destination:'Edinburgh', stop:'St Andrews Bus Station', area:'St Andrews', time:'07:55' },
-  { route:'15', destination:'Crieff', stop:'Perth Bus Station', area:'Perth', time:'08:10' },
-  { route:'X56', destination:'Perth', stop:'Ferrytoll Park & Ride', area:'Edinburgh', time:'08:25' }
-];
-
-let selectedArea = 'All';
-let query = '';
-const saved = new Set(JSON.parse(localStorage.getItem('sbl-favourites') || '[]'));
-
-const list = document.querySelector('#departureList');
-const template = document.querySelector('#departureTemplate');
-const areaChips = document.querySelector('#areaChips');
-const favourites = document.querySelector('#favourites');
-
-function updateClock() {
-  const now = new Date();
-  document.querySelector('#clock').textContent = now.toLocaleString('en-GB', {
-    weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'
-  });
-}
-
-function minutesUntil(time) {
-  const [hours, minutes] = time.split(':').map(Number);
-  const now = new Date();
-  const departure = new Date(now);
-  departure.setHours(hours, minutes, 0, 0);
-  if (departure < now) departure.setDate(departure.getDate() + 1);
-  return Math.max(0, Math.ceil((departure - now) / 60000));
-}
-
-function liveSearchUrl(item) {
-  return `https://bustimes.org/search?q=${encodeURIComponent(`${item.stop} ${item.route}`)}`;
-}
-
-function renderAreas() {
-  areaChips.innerHTML = '';
-  AREAS.forEach(area => {
-    const button = document.createElement('button');
-    button.className = `chip${area === selectedArea ? ' active' : ''}`;
-    button.textContent = area;
-    button.onclick = () => { selectedArea = area; renderAreas(); renderDepartures(); };
-    areaChips.append(button);
-  });
-}
-
-function keyFor(item) { return `${item.route}|${item.stop}|${item.destination}`; }
-
-function renderDepartures() {
-  const filtered = departures
-    .map(item => ({ ...item, due: minutesUntil(item.time) }))
-    .filter(item => {
-      const areaMatch = selectedArea === 'All' || item.area === selectedArea;
-      const text = `${item.route} ${item.destination} ${item.stop} ${item.area}`.toLowerCase();
-      return areaMatch && text.includes(query.toLowerCase());
-    })
-    .sort((a, b) => a.due - b.due);
-
-  list.innerHTML = '';
-  if (!filtered.length) {
-    list.innerHTML = '<div class="empty">No scheduled Stagecoach departures match that search.</div>';
-    return;
-  }
-
-  filtered.forEach(item => {
-    const node = template.content.cloneNode(true);
-    node.querySelector('.route-badge').textContent = item.route;
-    node.querySelector('h4').textContent = item.destination;
-    node.querySelector('.stop-name').textContent = item.stop;
-    const pill = node.querySelector('.status-pill');
-    pill.textContent = 'Scheduled';
-    pill.classList.add('scheduled');
-    node.querySelector('.vehicle').textContent = `Timetable ${item.time}`;
-    node.querySelector('.time-block strong').textContent = item.due <= 1 ? 'Due' : item.due;
-    node.querySelector('.time-block span').textContent = item.due <= 1 ? 'scheduled' : 'mins';
-
-    const liveLink = document.createElement('a');
-    liveLink.className = 'live-check-link';
-    liveLink.href = liveSearchUrl(item);
-    liveLink.target = '_blank';
-    liveLink.rel = 'noopener noreferrer';
-    liveLink.textContent = 'Check live on bustimes.org ↗';
-    node.querySelector('.meta-row').append(liveLink);
-
-    const fav = node.querySelector('.favourite-button');
-    const key = keyFor(item);
-    if (saved.has(key)) { fav.textContent = '★'; fav.classList.add('saved'); }
-    fav.onclick = () => {
-      if (saved.has(key)) saved.delete(key); else saved.add(key);
-      localStorage.setItem('sbl-favourites', JSON.stringify([...saved]));
-      renderDepartures(); renderFavourites();
-    };
-    list.append(node);
-  });
-}
-
-function renderFavourites() {
-  favourites.innerHTML = '';
-  const selected = departures.filter(d => saved.has(keyFor(d)));
-  if (!selected.length) {
-    favourites.innerHTML = '<div class="empty">Tap ☆ beside a departure to save it.</div>';
-    return;
-  }
-  selected.forEach(item => {
-    const card = document.createElement('button');
-    card.className = 'favourite-card';
-    card.innerHTML = `<strong>${item.stop}</strong><span>${item.route} to ${item.destination} · ${item.time}</span>`;
-    card.onclick = () => { query = item.stop; document.querySelector('#searchInput').value = query; renderDepartures(); };
-    favourites.append(card);
-  });
-}
-
-document.querySelector('#searchInput').addEventListener('input', event => { query = event.target.value.trim(); renderDepartures(); });
-document.querySelector('#clearSearch').onclick = () => { query = ''; document.querySelector('#searchInput').value = ''; renderDepartures(); };
-document.querySelector('#refreshButton').onclick = () => { updateClock(); renderDepartures(); };
-document.querySelector('#nearMeButton').onclick = () => {
-  if (!navigator.geolocation) return alert('Location is not supported on this device.');
-  navigator.geolocation.getCurrentPosition(
-    pos => alert(`Location found: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}\nNearby-stop matching will connect to NaPTAN in the next data stage.`),
-    () => alert('Location permission was not granted.')
-  );
-};
-document.querySelector('#themeButton').onclick = () => {
-  document.body.classList.toggle('dark');
-  localStorage.setItem('sbl-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
-};
-if (localStorage.getItem('sbl-theme') === 'dark') document.body.classList.add('dark');
-
-updateClock();
-setInterval(() => { updateClock(); renderDepartures(); }, 30000);
-renderAreas(); renderDepartures(); renderFavourites();
+const STANCES={X55:'3',X58:'4',X56:'5',X61:'5',X59:'6',X59A:'6'};
+let data=[],filter='all',query='';
+const $=s=>document.querySelector(s);
+const datePicker=$('#datePicker');
+const augustStart='2026-08-01',augustEnd='2026-08-31';
+function defaultDate(){const n=new Date(),iso=n.toISOString().slice(0,10);return iso>=augustStart&&iso<=augustEnd?iso:augustStart}
+datePicker.value=defaultDate();
+function key(j){return `${datePicker.value}|${j.id||[j.time,j.route,j.destination,j.stance].join('|')}`}
+function seenSet(){return new Set(JSON.parse(localStorage.getItem('edinburgh-seen')||'[]'))}
+function saveSeen(set){localStorage.setItem('edinburgh-seen',JSON.stringify([...set]))}
+function runsForDate(){const d=datePicker.value;return data.filter(j=>!j.date||j.date===d).sort((a,b)=>(a.time||'').localeCompare(b.time||''))}
+function halbeath(j){const names=(j.stops||[]).map(s=>(s.name||s.stop||'').toLowerCase());const dest=(j.destination||'').toLowerCase();if(dest.includes('halbeath'))return 'Terminates at Halbeath';if(names.some(n=>n.includes('halbeath')))return 'Via Halbeath';return 'Does not serve Halbeath'}
+function render(){const seen=seenSet();const all=runsForDate();const matches=all.filter(j=>{const isSeen=seen.has(key(j));const f=filter==='all'||(filter==='seen'&&isSeen)||(filter==='unseen'&&!isSeen);const text=`${j.route} ${j.destination} ${j.via||''}`.toLowerCase();return f&&text.includes(query.toLowerCase())});
+$('#seenCount').textContent=all.filter(j=>seen.has(key(j))).length;$('#totalCount').textContent=all.length;$('#remainingCount').textContent=all.filter(j=>!seen.has(key(j))).length;
+const list=$('#departureList');list.innerHTML='';
+if(!matches.length){list.innerHTML=`<div class="empty">${all.length?'No departures match this filter.':'No published Stagecoach departures are loaded for this date yet.'}</div>`;return}
+for(const j of matches){const isSeen=seen.has(key(j));const card=document.createElement('article');card.className=`departure${isSeen?' seen':''}`;const h=halbeath(j);card.innerHTML=`<div class="time">${j.time||'--:--'}</div><div class="route">${j.route||'?'}</div><div class="details"><button type="button"><strong>${j.destination||'Destination not published'}</strong><small>${j.via?`via ${j.via} · `:''}Tap for all stops</small><div class="badges"><span class="badge">Scheduled</span><span class="badge halbeath">${h}</span></div></button></div><div class="stance" title="Stance">${j.stance||STANCES[j.route]||'?'}</div><div class="seen-control"><label><input type="checkbox" ${isSeen?'checked':''}> Seen</label></div>`;
+card.querySelector('.details button').onclick=()=>openJourney(j,h);card.querySelector('input').onchange=e=>{const s=seenSet();e.target.checked?s.add(key(j)):s.delete(key(j));saveSeen(s);render()};list.append(card)} }
+function openJourney(j,h){$('#dialogMeta').textContent=`${j.time||''} · Service ${j.route||''} · Stance ${j.stance||STANCES[j.route]||'not published'}`;$('#dialogTitle').textContent=j.destination||'Journey';$('#halbeathDetail').textContent=h;const ol=$('#stopList');ol.innerHTML='';(j.stops||[]).forEach(s=>{const li=document.createElement('li');li.innerHTML=`${s.name||s.stop||''}${s.time?`<time>${s.time}</time>`:''}`;ol.append(li)});if(!(j.stops||[]).length)ol.innerHTML='<li>Stop-by-stop pattern has not yet been imported for this journey.</li>';$('#liveLink').href=j.liveUrl||`https://bustimes.org/search?q=${encodeURIComponent(`${j.route||''} Edinburgh Bus Station`)}`;$('#journeyDialog').showModal()}
+async function load(){try{const r=await fetch(`data/edinburgh-stagecoach.json?v=${Date.now()}`);if(!r.ok)throw new Error();const json=await r.json();data=Array.isArray(json)?json:(json.departures||[]);$('#dataNotice').textContent=data.length?`Published scheduled timetable loaded. ${data.length} journey records available. Times are not live predictions.`:'The timetable file is present but contains no August journeys.'}catch{$('#dataNotice').textContent='The official August timetable has not been imported yet. No sample or invented times are being shown.'}render()}
+function clock(){const n=new Date();$('#clock').textContent=n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});$('#todayLabel').textContent=n.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}
+$('#search').oninput=e=>{query=e.target.value.trim();render()};datePicker.onchange=render;document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x===b));render()});$('#clearChecks').onclick=()=>{if(confirm(`Clear all Seen checks for ${datePicker.value}?`)){const s=seenSet();[...s].filter(k=>k.startsWith(datePicker.value+'|')).forEach(k=>s.delete(k));saveSeen(s);render()}};$('#closeDialog').onclick=()=>$('#journeyDialog').close();clock();setInterval(clock,30000);load();
