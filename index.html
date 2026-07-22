@@ -1,103 +1,46 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
-  <title>Skinner Bus Live</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071018">
+  <title>Edinburgh Stagecoach Checklist</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">STAGECOACH EAST SCOTLAND</p>
-      <h1>Skinner Bus Live</h1>
-    </div>
-    <button id="themeButton" class="icon-button" aria-label="Toggle theme">☾</button>
-  </header>
+<header class="topbar">
+  <div><p>STAGECOACH • EDINBURGH</p><h1>August Departure Checklist</h1></div>
+  <div class="clock"><strong id="clock">--:--</strong><span id="todayLabel"></span></div>
+</header>
+<main>
+  <section class="toolbar">
+    <label>Date<input id="datePicker" type="date" min="2026-08-01" max="2026-08-31"></label>
+    <label>Search<input id="search" type="search" placeholder="Service or destination"></label>
+  </section>
 
-  <main>
-    <section class="hero">
-      <div class="status-row">
-        <span class="live-dot"></span>
-        <span id="clock">Loading time…</span>
-      </div>
-      <h2>Where are you travelling from?</h2>
-      <div class="search-wrap">
-        <span aria-hidden="true">⌕</span>
-        <input id="searchInput" type="search" placeholder="Search stop, town or service" autocomplete="off" />
-        <button id="clearSearch" aria-label="Clear search">×</button>
-      </div>
-      <button id="nearMeButton" class="primary-button">📍 Find stops near me</button>
-    </section>
+  <section class="summary">
+    <div><span>Seen</span><strong id="seenCount">0</strong></div>
+    <div><span>Scheduled</span><strong id="totalCount">0</strong></div>
+    <div><span>Remaining</span><strong id="remainingCount">0</strong></div>
+  </section>
 
-    <section>
-      <a class="station-board-link" href="edinburgh.html">
-        <div class="station-board-icon">▤</div>
-        <div>
-          <span class="station-board-label">STATION BOARD</span>
-          <strong>Edinburgh Bus Station</strong>
-          <small>All stances and next departures</small>
-        </div>
-        <span class="station-board-arrow">→</span>
-      </a>
-    </section>
-
-    <section>
-      <div class="section-heading">
-        <h3>Areas</h3>
-        <span>Stagecoach only</span>
-      </div>
-      <div id="areaChips" class="chips"></div>
-    </section>
-
-    <section>
-      <div class="section-heading">
-        <h3>Next departures</h3>
-        <button id="refreshButton" class="text-button">Refresh</button>
-      </div>
-      <div id="departureList" class="departure-list" aria-live="polite"></div>
-    </section>
-
-    <section>
-      <div class="section-heading">
-        <h3>Favourite stops</h3>
-      </div>
-      <div id="favourites" class="favourites"></div>
-    </section>
-  </main>
-
-  <nav class="bottom-nav" aria-label="Primary navigation">
-    <button class="active">⌂<span>Home</span></button>
-    <button>◉<span>Map</span></button>
-    <button>☆<span>Favourites</span></button>
-    <button>☰<span>More</span></button>
+  <nav class="filters" aria-label="Checklist filters">
+    <button class="active" data-filter="all">All</button>
+    <button data-filter="unseen">Not seen</button>
+    <button data-filter="seen">Seen</button>
+    <button id="clearChecks" class="danger">Clear checks</button>
   </nav>
 
-  <template id="departureTemplate">
-    <article class="departure-card">
-      <div class="route-badge"></div>
-      <div class="departure-main">
-        <div class="destination-row">
-          <h4></h4>
-          <button class="favourite-button" aria-label="Add favourite">☆</button>
-        </div>
-        <p class="stop-name"></p>
-        <div class="meta-row">
-          <span class="status-pill"></span>
-          <span class="vehicle"></span>
-        </div>
-      </div>
-      <div class="time-block">
-        <strong></strong>
-        <span></span>
-      </div>
-    </article>
-  </template>
+  <section class="notice" id="dataNotice">Loading the published Stagecoach timetable…</section>
+  <section id="departureList" class="list" aria-live="polite"></section>
+</main>
 
-  <script src="app.js" type="module"></script>
+<dialog id="journeyDialog">
+  <div class="dialog-head"><div><small id="dialogMeta"></small><h2 id="dialogTitle"></h2></div><button id="closeDialog" aria-label="Close">×</button></div>
+  <div id="halbeathDetail" class="halbeath-detail"></div>
+  <ol id="stopList" class="stops"></ol>
+  <a id="liveLink" class="external" target="_blank" rel="noopener noreferrer">Check live running on bustimes.org ↗</a>
+</dialog>
+<script src="app.js" type="module"></script>
 </body>
 </html>
