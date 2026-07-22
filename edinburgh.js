@@ -1,20 +1,7 @@
-// Scheduled-board starter records. These are not live predictions.
-// Replace this list with processed Stagecoach/Traveline timetable data.
-const departures = [
-  { time:'06:35', route:'X55', destination:'Dunfermline', via:'Ferrytoll', operator:'Stagecoach', stance:'1' },
-  { time:'06:45', route:'X59', destination:'St Andrews', via:'Glenrothes', operator:'Stagecoach', stance:'2' },
-  { time:'06:55', route:'X61', destination:'Kirkcaldy', via:'Halbeath P&R', operator:'Stagecoach', stance:'3' },
-  { time:'07:05', route:'X56', destination:'Perth', via:'Dunfermline', operator:'Stagecoach', stance:'4' },
-  { time:'07:15', route:'909', destination:'Stirling', via:'Bo’ness', operator:'Scottish Citylink', stance:'5' },
-  { time:'07:25', route:'900', destination:'Glasgow', via:'Harthill', operator:'Scottish Citylink', stance:'6' },
-  { time:'07:40', route:'M90', destination:'Inverness', via:'Perth', operator:'Scottish Citylink', stance:'7' },
-  { time:'07:50', route:'X60', destination:'St Andrews', via:'Leven', operator:'Stagecoach', stance:'8' },
-  { time:'08:00', route:'X58', destination:'Leven', via:'Kirkcaldy', operator:'Stagecoach', stance:'9' },
-  { time:'08:10', route:'X54', destination:'Dundee', via:'Glenrothes', operator:'Stagecoach', stance:'10' }
-];
-
+let departures = [];
 let selectedStance = 'All';
 let query = '';
+
 const rows = document.querySelector('#boardRows');
 const filters = document.querySelector('#stanceFilters');
 
@@ -29,12 +16,16 @@ function minutesUntil(time) {
   const now = new Date();
   const departure = new Date(now);
   departure.setHours(hours, minutes, 0, 0);
-  if (departure < now) departure.setDate(departure.getDate() + 1);
   return Math.ceil((departure - now) / 60000);
 }
 
+function todayName() {
+  return new Intl.DateTimeFormat('en-GB', { weekday:'long' }).format(new Date());
+}
+
 function allStances() {
-  return [...new Set(departures.map(item => item.stance))].sort((a,b) => a.localeCompare(b, undefined, { numeric:true }));
+  return [...new Set(departures.map(item => item.stance).filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, undefined, { numeric:true }));
 }
 
 function renderFilters() {
@@ -49,40 +40,62 @@ function renderFilters() {
 }
 
 function renderRows() {
+  const today = todayName();
   const matches = departures
+    .filter(item => !item.days || item.days.includes(today))
     .map(item => ({ ...item, due: minutesUntil(item.time) }))
+    .filter(item => item.due >= -1)
     .filter(item => {
       const stanceMatch = selectedStance === 'All' || item.stance === selectedStance;
-      const searchable = `${item.route} ${item.destination} ${item.via} ${item.operator} ${item.stance}`.toLowerCase();
+      const searchable = `${item.route} ${item.destination} ${item.via || ''} ${item.operator} ${item.stance}`.toLowerCase();
       return stanceMatch && searchable.includes(query.toLowerCase());
     })
-    .sort((a,b) => a.due - b.due);
+    .sort((a,b) => a.due - b.due)
+    .slice(0, 80);
 
   rows.innerHTML = '';
   if (!matches.length) {
-    rows.innerHTML = '<div class="empty">No scheduled departures match this search or stance.</div>';
+    rows.innerHTML = '<div class="empty">No more Stagecoach departures are scheduled from Edinburgh Bus Station today.</div>';
     return;
   }
 
   matches.forEach(item => {
     const row = document.createElement('article');
     row.className = 'board-row';
+    const dueText = item.due <= 1 ? 'Due by timetable' : `In ${item.due} mins`;
     row.innerHTML = `
       <div class="board-time">${item.time}</div>
       <div><span class="route">${item.route}</span></div>
-      <div class="destination"><strong>${item.destination}</strong><span>via ${item.via}</span></div>
+      <div class="destination"><strong>${item.destination}</strong><span>${item.via || 'Scheduled service'}</span></div>
       <div class="operator">${item.operator}</div>
       <div class="stance" aria-label="Stance ${item.stance}">${item.stance}</div>
-      <div class="status scheduled">${item.due <= 1 ? 'Due by timetable' : `In ${item.due} mins`}</div>`;
+      <div class="status scheduled">${dueText}</div>`;
     rows.append(row);
   });
 }
 
+async function loadTimetable() {
+  rows.innerHTML = '<div class="empty">Loading the official Stagecoach timetable…</div>';
+  try {
+    const response = await fetch(`data/edinburgh-scheduled.json?v=${Date.now()}`, { cache:'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    departures = Array.isArray(data.departures) ? data.departures : [];
+    const generated = data.generated ? new Date(data.generated).toLocaleString('en-GB') : 'unknown';
+    const notice = document.querySelector('.notice span:not(.pulse)');
+    if (notice) notice.textContent = `Official Stagecoach scheduled data. Updated ${generated}. Check bustimes.org for live running.`;
+    renderFilters();
+    renderRows();
+  } catch (error) {
+    rows.innerHTML = '<div class="empty">The official timetable is still being generated. Refresh this page in a few minutes.</div>';
+    console.error(error);
+  }
+}
+
 document.querySelector('#boardSearch').addEventListener('input', event => { query = event.target.value.trim(); renderRows(); });
 document.querySelector('#showAllStances').onclick = () => { selectedStance = 'All'; renderFilters(); renderRows(); };
-document.querySelector('#refreshBoard').onclick = () => { updateClock(); renderRows(); };
+document.querySelector('#refreshBoard').onclick = () => { updateClock(); loadTimetable(); };
 
 updateClock();
 setInterval(() => { updateClock(); renderRows(); }, 30000);
-renderFilters();
-renderRows();
+loadTimetable();
