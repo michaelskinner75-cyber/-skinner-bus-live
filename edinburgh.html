@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#071018" />
-  <title>Edinburgh Bus Station Board</title>
+  <title>Edinburgh Bus Station Scheduled Board</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,50 +13,29 @@
 <body>
   <header class="board-header">
     <a class="back-link" href="index.html" aria-label="Back to Skinner Bus Live">←</a>
-    <div>
-      <p>SKINNER BUS LIVE</p>
-      <h1>Edinburgh Bus Station</h1>
-    </div>
-    <div class="clock-wrap">
-      <strong id="boardClock">--:--</strong>
-      <span id="boardDate">Loading…</span>
-    </div>
+    <div><p>SKINNER BUS LIVE</p><h1>Edinburgh Bus Station</h1></div>
+    <div class="clock-wrap"><strong id="boardClock">--:--</strong><span id="boardDate">Loading…</span></div>
   </header>
-
   <main>
     <section class="notice" role="status">
       <span class="pulse"></span>
-      <div><strong>Departure board preview</strong><span>Sample departures until the authorised live feed is connected.</span></div>
+      <div><strong>Scheduled departure board</strong><span>Times show what is timetabled, not the actual live position of a bus.</span></div>
     </section>
-
     <section class="controls" aria-label="Board filters">
-      <label class="search-box">
-        <span>⌕</span>
-        <input id="boardSearch" type="search" placeholder="Search service, destination or operator" autocomplete="off" />
-      </label>
+      <label class="search-box"><span>⌕</span><input id="boardSearch" type="search" placeholder="Search service, destination or operator" autocomplete="off" /></label>
       <button id="refreshBoard">Refresh</button>
     </section>
-
+    <p style="margin:0 0 18px"><a href="https://bustimes.org/stations/620G600739" target="_blank" rel="noopener noreferrer" style="color:#ffb11b;font-weight:800">Check live Edinburgh departures on bustimes.org ↗</a></p>
     <section>
-      <div class="section-title">
-        <h2>Stances</h2>
-        <button id="showAllStances" class="link-button">Show all</button>
-      </div>
+      <div class="section-title"><h2>Stances</h2><button id="showAllStances" class="link-button">Show all</button></div>
       <div id="stanceFilters" class="stance-filters" aria-label="Stance filters"></div>
     </section>
-
     <section class="board-panel" aria-live="polite">
-      <div class="board-columns" aria-hidden="true">
-        <span>TIME</span><span>SERVICE</span><span>DESTINATION</span><span>OPERATOR</span><span>STANCE</span><span>STATUS</span>
-      </div>
+      <div class="board-columns" aria-hidden="true"><span>TIME</span><span>SERVICE</span><span>DESTINATION</span><span>OPERATOR</span><span>STANCE</span><span>STATUS</span></div>
       <div id="boardRows"></div>
     </section>
   </main>
-
-  <footer>
-    Independent travel-information project. Not affiliated with Edinburgh Bus Station, the City of Edinburgh Council or any operator.
-  </footer>
-
+  <footer>Independent scheduled-information project. Check the operator or bustimes.org for live running information.</footer>
   <script src="edinburgh.js" type="module"></script>
 </body>
 </html>
